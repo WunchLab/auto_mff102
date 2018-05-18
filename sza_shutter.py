@@ -28,7 +28,8 @@ import time
 #sys.path.insert(0, 'C:/Users/Jacob_2/Documents/Python/auto_shutter/thorlabs_apt/thorlabs_apt')
 import ftd2xx
 import ftd2xx.defines as constants
-
+import email_lidar
+e=email_lidar.Email() 
 
 #%% testing
 #import thorlabs_apt as apt #for position detection
@@ -50,7 +51,6 @@ import ftd2xx.defines as constants
 #%% setup some constants
 cmd_tspc = 20 #minimum command time spacing in seconds
 lst_cmd_time = dt.datetime.now() - dt.timedelta((cmd_tspc+10)/86400) #last command time
-  
 
 # %% make some defintions
 def uot_sza_srise(lla=[43.66061, -79.398407, 167], horz='8.5'):
@@ -154,9 +154,11 @@ def flip_move(fopn=True):
   if fopn: #open the shutter
     motor.write(opn_position)
     print(dt.datetime.now().strftime('%H:%M:%S %Y/%m/%d') + ' opened')
+    e.send('Lidar shutter opened', str(dt.datetime.now().strftime('%H:%M:%S %Y/%m/%d'))+' Lidar shutter opened',"Lidar")
   else: #close the shutter
     motor.write(clsd_position)
     print(dt.datetime.now().strftime('%H:%M:%S %Y/%m/%d') + ' closed')
+    e.send('Lidar shutter closed', str(dt.datetime.now().strftime('%H:%M:%S %Y/%m/%d'))+' Lidar shutter closed',"Lidar")
   
   time.sleep(3) #add in short delay to allow motor to fully flip
 
@@ -229,8 +231,8 @@ try:
       lst_cmd_time = dt.datetime.now() #get current time
       
       if oorc<2: #if it's open OR closed
-#        dorn, sec2go = uot_sza_srise(lla=[43.66061, -79.398407, 167], horz='15.5') #specify when to next open/close shutter
-        dorn, sec2go = comp_srss(srss=[7.5, 17.75]) #computer times to open/close shutter
+        dorn, sec2go = uot_sza_srise(lla=[43.66061, -79.398407, 167], horz='0.0') #specify when to next open/close shutter
+#        dorn, sec2go = comp_srss(srss=[7.5, 17.75]) #computer times to open/close shutter
         
         sec2go = sec2go+20 #adds in a few seconds delay to reduce chance of motor flipping back and forth at ends of day
         nxt_time = dt.datetime.now() + dt.timedelta((sec2go)/86400) #next time a command is to take place
@@ -265,10 +267,6 @@ except KeyboardInterrupt:
 
 
   
-
-
-
-
 
 
 
