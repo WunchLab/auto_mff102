@@ -24,10 +24,9 @@ class Email:
 	def __init__(self):
 
 		self.Lidar = ['orfeo.colebatch@utoronto.ca',
-		'bbyrne@physics.utoronto.ca',
 		'dwunch@atmosp.physics.utoronto.ca',
 		'jacob.hedelius@utoronto.ca',
-		'astronasrin@gmail.com']
+        'sebastien.ars@utoronto.ca']
 		#must be a list
 
 		self.Orfeo = ['orfeo.colebatch@utoronto.ca'] 

@@ -3,20 +3,22 @@
 Created on Mon Apr  9 11:39:21 2018
 
 @author: Jacob
-"""
 
-# script used to open the LIDAR shutter at specified times or SZAs of day
-# THANKS to cmoriarty who commented on the issue on github (https://github.com/qpit/thorlabs_apt/issues/3)
-# You will need to install ftd2xx and pyephem if you haven't already
-# pip install ftd2xx
-# conda install -c astropy pyephem
-# More byte level commands are in the "Thorlabs APT Controllers Host-Controller Communications Protocol" documentation
-# (https://www.thorlabs.com/software/apt/APT_Communications_Protocol_Rev_15.pdf)
-# NOTE: I don't currently have a good way to exit this program gracefully. It gets "stuck"
-# in sleep mode. So I guess just close down python
-# used this website to find current SZA when testing: http://suncalc.net/#/43.6612,-79.3977,18/2018.04.10/12:54
-# There are 2 options to define sunrise/sunset, based on SZA or computer time (uot_sza_srise, or comp_srss)
-# One is used in the main "while" loop below
+
+script used to open the LIDAR shutter at specified times or SZAs of day
+THANKS to cmoriarty who commented on the issue on github (https://github.com/qpit/thorlabs_apt/issues/3)
+You will need to install ftd2xx and pyephem if you haven't already
+pip install ftd2xx
+conda install -c astropy pyephem
+More byte level commands are in the "Thorlabs APT Controllers Host-Controller Communications Protocol" documentation
+(https://www.thorlabs.com/software/apt/APT_Communications_Protocol_Rev_15.pdf)
+NOTE: I don't currently have a good way to exit this program gracefully. It gets "stuck"
+in sleep mode. So I guess just close down python
+used this website to find current SZA when testing: http://suncalc.net/#/43.6612,-79.3977,18/2018.04.10/12:54
+There are 2 options to define sunrise/sunset, based on SZA or computer time (uot_sza_srise, or comp_srss)
+One is used in the main "while" loop below
+
+"""
 
 
 #%% import some modules
@@ -29,7 +31,7 @@ import time
 import ftd2xx
 import ftd2xx.defines as constants
 import email_lidar
-e=email_lidar.Email() 
+emailL=email_lidar.Email() 
 
 #%% testing
 #import thorlabs_apt as apt #for position detection
@@ -53,8 +55,11 @@ cmd_tspc = 20 #minimum command time spacing in seconds
 lst_cmd_time = dt.datetime.now() - dt.timedelta((cmd_tspc+10)/86400) #last command time
 
 # %% make some defintions
-def uot_sza_srise(lla=[43.66061, -79.398407, 167], horz='8.5'):
-#  'lla = lat, lon, and altitude. horz = horizon angle'
+def uot_sza_srise(lla=[43.66061, -79.398407, 167], horz='8.5', tpad=0):
+  """ Get time until next sunrise or sunset
+  'lla = lat, lon, and altitude. horz = horizon angle'
+  tpad = time padding (in minutes) - after sunrise and before sunset
+  """
   
   obs_loc = ephem.Observer()
   obs_loc.lat = np.str(lla[0])
@@ -72,10 +77,10 @@ def uot_sza_srise(lla=[43.66061, -79.398407, 167], horz='8.5'):
   curr_elv = s_pos.alt*180/np.pi #elevation angle
   
   if curr_elv>np.float64(horz): #next is sunset
-    sec_sset = (obs_loc.next_setting(s_gen) - ephem.now())*86400 #seconds until next sunset
+    sec_sset = (obs_loc.next_setting(s_gen) - ephem.now())*86400 - tpad*60 #seconds until next sunset
     return 1, sec_sset
   elif curr_elv<=np.float64(horz): #next is sunrise
-    sec_srise = (obs_loc.next_rising(s_gen) - ephem.now())*86400 #seconds until next sunrise
+    sec_srise = (obs_loc.next_rising(s_gen) - ephem.now())*86400 + tpad*60 #seconds until next sunrise
     return 0, sec_srise
 
 
@@ -154,11 +159,11 @@ def flip_move(fopn=True):
   if fopn: #open the shutter
     motor.write(opn_position)
     print(dt.datetime.now().strftime('%H:%M:%S %Y/%m/%d') + ' opened')
-    e.send('Lidar shutter opened', str(dt.datetime.now().strftime('%H:%M:%S %Y/%m/%d'))+' Lidar shutter opened',"Lidar")
+    emailL.send('Lidar shutter opened', str(dt.datetime.now().strftime('%H:%M:%S %Y/%m/%d'))+' Lidar shutter opened',"Lidar")
   else: #close the shutter
     motor.write(clsd_position)
     print(dt.datetime.now().strftime('%H:%M:%S %Y/%m/%d') + ' closed')
-    e.send('Lidar shutter closed', str(dt.datetime.now().strftime('%H:%M:%S %Y/%m/%d'))+' Lidar shutter closed',"Lidar")
+    emailL.send('Lidar shutter closed', str(dt.datetime.now().strftime('%H:%M:%S %Y/%m/%d'))+' Lidar shutter closed.',"Lidar")
   
   time.sleep(3) #add in short delay to allow motor to fully flip
 
@@ -231,7 +236,7 @@ try:
       lst_cmd_time = dt.datetime.now() #get current time
       
       if oorc<2: #if it's open OR closed
-        dorn, sec2go = uot_sza_srise(lla=[43.66061, -79.398407, 167], horz='0.0') #specify when to next open/close shutter
+        dorn, sec2go = uot_sza_srise(lla=[43.66061, -79.398407, 167], horz='2.0', tpad=30) #specify when to next open/close shutter
 #        dorn, sec2go = comp_srss(srss=[7.5, 17.75]) #computer times to open/close shutter
         
         sec2go = sec2go+20 #adds in a few seconds delay to reduce chance of motor flipping back and forth at ends of day
