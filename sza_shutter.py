@@ -54,11 +54,10 @@ emailL=email_lidar.Email()
 cmd_tspc = 20 #minimum command time spacing in seconds
 lst_cmd_time = dt.datetime.now() - dt.timedelta((cmd_tspc+10)/86400) #last command time
 
-# %% make some defintions
-def uot_sza_srise(lla=[43.66061, -79.398407, 167], horz='8.5', tpad=0):
+# %% make some defintions of sunrise/sunsets
+def uot_sza_srise(lla=[43.66061, -79.398407, 167], horz='8.5'):
   """ Get time until next sunrise or sunset
   'lla = lat, lon, and altitude. horz = horizon angle'
-  tpad = time padding (in minutes) - after sunrise and before sunset
   """
   
   obs_loc = ephem.Observer()
@@ -77,10 +76,10 @@ def uot_sza_srise(lla=[43.66061, -79.398407, 167], horz='8.5', tpad=0):
   curr_elv = s_pos.alt*180/np.pi #elevation angle
   
   if curr_elv>np.float64(horz): #next is sunset
-    sec_sset = (obs_loc.next_setting(s_gen) - ephem.now())*86400 - tpad*60 #seconds until next sunset
+    sec_sset = (obs_loc.next_setting(s_gen) - ephem.now())*86400 #seconds until next sunset
     return 1, sec_sset
   elif curr_elv<=np.float64(horz): #next is sunrise
-    sec_srise = (obs_loc.next_rising(s_gen) - ephem.now())*86400 + tpad*60 #seconds until next sunrise
+    sec_srise = (obs_loc.next_rising(s_gen) - ephem.now())*86400 #seconds until next sunrise
     return 0, sec_srise
 
 
@@ -126,8 +125,61 @@ def comp_srss(srss=[7.5, 17.75]): #computer sunrise sunset times (hours of day)
       sec_sset = (srss[1]+24-ct_h)*3600 #seconds until next sunset
       return 1, sec_sset
     
+    
+
+def sza_srise_wpad(lla=[43.66061, -79.398407, 167], horz='2.0', tpad=0, time_srss=None):
+  """ Get time until next sunrise or sunset
+  Primary calculation is based on sza with some time padding (tpad, in minutes)
+  Also can use the computer time (time_srss, should be 2 number list ). Mode is 'safe' where the earlier of computer time
+  or sza sunset time is used to define sunset (i.e., more likely to close the shutter)
+  'lla = lat, lon, and altitude. horz = horizon angle'
+  """
+  
+  obs_loc = ephem.Observer()
+  obs_loc.lat = np.str(lla[0])
+  obs_loc.lon = np.str(lla[1])
+  obs_loc.elevation = lla[2]
+  obs_loc.horizon = horz #user definition of horizon. E.g. '8:30' for 8.5 degrees above
+  s_pos = ephem.Sun(obs_loc)
+  s_gen = ephem.Sun() #generic sun calc
+  
+  utc_now = ephem.now()
+  utc_srise = obs_loc.next_rising(s_gen) #utc time for next sunrise
+  utc_sset = obs_loc.next_setting(s_gen) #utc time for next sunset
+  p_srise = obs_loc.previous_rising(s_gen)
+  
+  #### Four options with padding. Normal day, normal night, dawn, or dusk
+  curr_elv = s_pos.alt*180/np.pi #elevation angle
+  if curr_elv>np.float64(horz) and utc_now<utc_sset-tpad/1440 and utc_now>p_srise+tpad/1440: #normal day
+    sec_next = (utc_sset - utc_now)*86400 - tpad*60 #seconds until next sunset
+    nord = 1 
+  else: #everything else as night
+    nord = 0
+    sec_next = (utc_srise - utc_now)*86400 + tpad*60 #seconds until next sunrise  
+#  elif curr_elv<=np.float64(horz): #normal night
+#  elif curr_elv>np.float64(horz) and utc_now>=utc_sset-tpad/1440: #dusk, treat as night
+#  elif curr_elv>np.float64(horz) and utc_now<=p_srise+tpad/1440: #dawn, treat as night
+  
+  #### Can override night definition with computer time
+  if time_srss is not None:
+    ctnod, ctsec = comp_srss(srss=time_srss)
+    
+    if (nord==1 and ctnod==1) and ctsec<sec_next:    # both think it's day, but time sunset is sooner
+      sec_next = ctsec
+    elif (nord==0 and ctnod==0) and ctsec>sec_next:   # both think it's night, but time sunrise is later
+      sec_next = ctsec
+    elif nord==1 and ctnod==0:   #SZA is day, but time is night
+      nord=0
+      sec_next=ctnod
+    elif nord==0 and ctnod==1: #SZA is night, but time is day (keep the same)
+      pass
+  
+  return nord, sec_next
 
 
+
+
+#%%
 def open_or_closed(motor, vrb=True):
   #determine if motor is open or closed
   clsd_stat = b'*\x04\x06\x00\x81P\x01\x00\x02\x00\x00\x90' #closed byte status
@@ -236,8 +288,9 @@ try:
       lst_cmd_time = dt.datetime.now() #get current time
       
       if oorc<2: #if it's open OR closed
-        dorn, sec2go = uot_sza_srise(lla=[43.66061, -79.398407, 167], horz='2.0', tpad=30) #specify when to next open/close shutter
+#        dorn, sec2go = uot_sza_srise(lla=[43.66061, -79.398407, 167], horz='2.0') #specify when to next open/close shutter
 #        dorn, sec2go = comp_srss(srss=[7.5, 17.75]) #computer times to open/close shutter
+        dorn, sec2go = sza_srise_wpad(lla=[43.66061, -79.398407, 167], horz='2.0', tpad=30)
         
         sec2go = sec2go+20 #adds in a few seconds delay to reduce chance of motor flipping back and forth at ends of day
         nxt_time = dt.datetime.now() + dt.timedelta((sec2go)/86400) #next time a command is to take place
