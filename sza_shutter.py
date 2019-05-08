@@ -164,13 +164,13 @@ def sza_srise_wpad(lla=[43.66061, -79.398407, 167], horz='2.0', tpad=0, time_srs
   if time_srss is not None:
     ctnod, ctsec = comp_srss(srss=time_srss)
     
-    if (nord==1 and ctnod==1) and ctsec<sec_next:    # both think it's day, but time sunset is sooner
+    if (nord==1 and ctnod==1) and ctsec<sec_next:    # both think it's day, but computer time sunset is sooner
       sec_next = ctsec
-    elif (nord==0 and ctnod==0) and ctsec>sec_next:   # both think it's night, but time sunrise is later
+    elif (nord==0 and ctnod==0) and ctsec>sec_next:   # both think it's night, but computer time sunrise is later
       sec_next = ctsec
-    elif nord==1 and ctnod==0:   #SZA is day, but time is night
+    elif nord==1 and ctnod==0:   #SZA thinks it's day, but computer time thinks is night
       nord=0
-      sec_next=ctnod
+      sec_next=ctsec
     elif nord==0 and ctnod==1: #SZA is night, but time is day (keep the same)
       pass
   
