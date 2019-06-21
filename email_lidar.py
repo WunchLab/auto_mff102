@@ -25,8 +25,7 @@ class Email:
 
 		self.Lidar = ['orfeo.colebatch@utoronto.ca',
 		'dwunch@atmosp.physics.utoronto.ca',
-		'jacob.hedelius@utoronto.ca',
-        'sebastien.ars@utoronto.ca']
+		'sebastien.ars@utoronto.ca']
 		#must be a list
 
 		self.Orfeo = ['orfeo.colebatch@utoronto.ca'] 
