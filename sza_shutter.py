@@ -232,7 +232,7 @@ def lp_subhk(m_opn=False): #loop sub-check
     
   
 
-def lp_check(op_time, cmd_tspc, m_opn=False, swp_end=False):
+def lp_check(op_time, cmd_tspc=20, m_opn=False, swp_end=False):
   # as an alternative to a long sleep, this script loops through every so often
   # to check the shutter position
   
@@ -242,6 +242,11 @@ def lp_check(op_time, cmd_tspc, m_opn=False, swp_end=False):
     time.sleep(cmd_tspc) #take a little nap
   
   sec_until = (op_time - dt.datetime.now()).total_seconds() #seconds until next command
+  if sec_until<=0: #seen a bug with negative time a few times now...
+    print(dt.datetime.now().strftime('%H:%M:%S %Y/%m/%d') + ' sec_until: ' + sec_until) #display variable, this will come before a stopping error...
+    if sec_until>-30: #if it's up to 30 seconds off, I'll let the mistake slide
+      sec_until = 10
+  
   time.sleep(sec_until) #take a final nap
   
   if swp_end: #swap position at end
